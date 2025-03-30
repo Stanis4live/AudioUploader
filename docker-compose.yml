@@ -1,0 +1,38 @@
+services:
+
+  db_postgres:
+    image: postgres:16
+    container_name: db_audio_uploader
+    restart: always
+    environment:
+      POSTGRES_USER: upload_service
+      POSTGRES_PASSWORD: upload_service
+      POSTGRES_DB: upload_service
+    ports:
+      - "5434:5432"
+    volumes:
+      - upload_service_postgres_data:/var/lib/postgresql/data
+    networks:
+      - main_network
+
+  audio_uploader:
+    build:
+      context: .
+    container_name: audio_uploader
+    restart: always
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db_postgres
+    networks:
+      - main_network
+    volumes:
+      - .:/app
+
+volumes:
+  upload_service_postgres_data:
+
+networks:
+  main_network:
