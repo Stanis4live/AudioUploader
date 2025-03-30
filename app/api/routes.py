@@ -5,7 +5,10 @@ from decouple import config
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from sqlalchemy.future import select
+from fastapi.responses import RedirectResponse
+from typing import Optional
 
+from app.api.schemas import AudioFileSchema
 from app.services.auth.auth import get_or_create_user, get_current_user, create_internal_token
 from app.services.database.db_config import get_async_session
 from app.services.database.models import User, AudioFile
@@ -25,7 +28,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def login():
     yandex_auth_url = (f"https://oauth.yandex.ru/authorize?"
                        f"response_type=code&client_id={YANDEX_CLIENT_ID}&redirect_uri={YANDEX_REDIRECT_URI}")
-    return {"auth_url": yandex_auth_url}
+    return RedirectResponse (url=yandex_auth_url)
 
 
 @auth_router.get("/callback")
@@ -69,13 +72,16 @@ async def refresh_token(user: User = Depends(get_current_user), session: AsyncSe
     return {"internal_token": new_token}
 
 
-@audio_router.post("/upload")
+@audio_router.post("/upload", response_model=AudioFileSchema)
 async def upload_audio(
         file: UploadFile = File(...),
-        display_name: str = Form(...),
+        display_name: Optional[str] = Form(None),
         user: User = Depends(get_current_user),
         session: AsyncSession = Depends(get_async_session)
 ):
+    if not display_name:
+        display_name = os.path.splitext(file.filename)[0]
+
     extension = os.path.splitext(file.filename)[-1]
     unique_name = f"{user.id}_{display_name}_{extension}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
@@ -92,11 +98,13 @@ async def upload_audio(
     await session.commit()
     await session.refresh(audio)
 
-    return {"id": audio.id, "display_name": audio.display_name}
+    return AudioFileSchema(id=audio.id, display_name=audio.display_name, file_path=file_path)
 
 
 @audio_router.get("/")
 async def list_audios(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_async_session)):
     result = await session.execute(select(AudioFile).where(AudioFile.user_id == user.id))
     audio_files = result.scalars().all()
-    return [{"id": audio_file.id, "display_name": audio_file.display_name} for audio_file in audio_files]
+    response = [AudioFileSchema(id=audio_file.id, display_name=audio_file.display_name,
+                                file_path=os.path.join(UPLOAD_DIR, audio_file.file_name)) for audio_file in audio_files]
+    return response

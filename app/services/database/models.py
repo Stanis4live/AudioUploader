@@ -20,6 +20,6 @@ class AudioFile(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     file_name = Column(String, nullable=False)
-    display_name = Column(String, nullable=False)
+    display_name = Column(String)
 
     user = relationship("User", backref="audio_files")
