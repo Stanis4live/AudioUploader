@@ -8,13 +8,14 @@ from sqlalchemy.future import select
 from fastapi.responses import RedirectResponse
 from typing import Optional
 
-from app.api.schemas import AudioFileSchema
-from app.services.auth.auth import get_or_create_user, get_current_user, create_internal_token
+from app.api.schemas import AudioFileSchema, UserSchema, UserUpdateSchema
+from app.services.auth.auth import get_or_create_user, get_current_user, create_internal_token, get_superuser
 from app.services.database.db_config import get_async_session
 from app.services.database.models import User, AudioFile
 
 auth_router = APIRouter(prefix="/auth/yandex")
 audio_router = APIRouter(prefix="/audio")
+admin_router = APIRouter(prefix="/admin")
 
 YANDEX_CLIENT_ID = config("YANDEX_CLIENT_ID")
 YANDEX_CLIENT_SECRET = config("YANDEX_CLIENT_SECRET")
@@ -108,3 +109,42 @@ async def list_audios(user: User = Depends(get_current_user), session: AsyncSess
     response = [AudioFileSchema(id=audio_file.id, display_name=audio_file.display_name,
                                 file_path=os.path.join(UPLOAD_DIR, audio_file.file_name)) for audio_file in audio_files]
     return response
+
+
+@admin_router.get("/user/{user_id}", response_model=UserSchema)
+async def get_user(user_id: int, session: AsyncSession = Depends(get_async_session), superuser: User = Depends(get_superuser)):
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@admin_router.patch("/user/{user_id}", response_model=UserSchema)
+async def update_user(user_id: int, data: UserUpdateSchema, session: AsyncSession = Depends(get_async_session),
+                      superuser: User = Depends(get_superuser)):
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.login is not None:
+        user.login = data.login
+
+    if data.is_superuser is not None:
+        user.is_superuser = data.is_superuser
+
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+@admin_router.delete("/user/{user_id}")
+async def delete_user(user_id: int, session: AsyncSession = Depends(get_async_session), superuser: User = Depends(get_superuser)):
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await session.delete(user)
+    await session.commit()
+    return {"status": "deleted"}

@@ -2,7 +2,7 @@ from decouple import config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth_router, audio_router
+from app.api.routes import auth_router, audio_router, admin_router
 
 
 main_app = FastAPI(
@@ -21,3 +21,4 @@ main_app.add_middleware(
 
 main_app.include_router(auth_router)
 main_app.include_router(audio_router)
+main_app.include_router(admin_router)

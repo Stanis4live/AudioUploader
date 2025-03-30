@@ -12,6 +12,11 @@ class UserSchema(BaseModel):
         orm_mode = True
 
 
+class UserUpdateSchema(BaseModel):
+    login: Optional[str] = None
+    is_superuser: Optional[bool] = None
+
+
 class AudioFileSchema(BaseModel):
     id: int
     display_name: str
