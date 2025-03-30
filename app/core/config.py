@@ -2,7 +2,7 @@ from decouple import config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# from app.api.tgstat.routes import router as tgstat_router
+from app.api.routes import auth_router, audio_router
 
 
 main_app = FastAPI(
@@ -19,4 +19,5 @@ main_app.add_middleware(
     allow_headers=["*"],
 )
 
-# main_app.include_router(tgstat_router, tags=["tgstat"])
+main_app.include_router(auth_router)
+main_app.include_router(audio_router)
